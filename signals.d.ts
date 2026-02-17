@@ -3,7 +3,7 @@ interface Signal<T> {
     get(): T;
 }
 
-namespace Signal {
+export declare namespace Signal {
     // A read-write Signal
     class State<T> implements Signal<T> {
         // Create a state Signal starting with the value t
@@ -39,16 +39,16 @@ namespace Signal {
         // Returns ordered list of all signals which this one referenced
         // during the last time it was evaluated.
         // For a Watcher, lists the set of signals which it is watching.
-        function introspectSources(s: Computed | Watcher): (State | Computed)[];
+        function introspectSources(s: Computed | Watcher): (State<any> | Computed)[];
 
         // Returns the Watchers that this signal is contained in, plus any
         // Computed signals which read this signal last time they were evaluated,
         // if that computed signal is (recursively) watched.
-        function introspectSinks(s: State | Computed): (Computed | Watcher)[];
+        function introspectSinks(s: State<any> | Computed): (Computed | Watcher)[];
 
         // True if this signal is "live", in that it is watched by a Watcher,
         // or it is read by a Computed signal which is (recursively) live.
-        function hasSinks(s: State | Computed): boolean;
+        function hasSinks(s: State<any> | Computed): boolean;
 
         // True if this element is "reactive", in that it depends
         // on some other signal. A Computed where hasSources is false
@@ -65,14 +65,14 @@ namespace Signal {
             // notify callback next time any signal in the set (or one of its dependencies) changes.
             // Can be called with no arguments just to reset the "notified" state, so that
             // the notify callback will be invoked again.
-            watch(...s: Signal[]): void;
+            watch(...s: Signal<any>[]): void;
 
             // Remove these signals from the watched set (e.g., for an effect which is disposed)
-            unwatch(...s: Signal[]): void;
+            unwatch(...s: Signal<any>[]): void;
 
             // Returns the set of sources in the Watcher's set which are still dirty, or is a computed signal
             // with a source which is dirty or pending and hasn't yet been re-evaluated
-            getPending(): Signal[];
+            getPending(): Signal<any>[];
         }
 
         // Hooks to observe being watched or no longer watched

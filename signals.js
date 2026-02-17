@@ -3,6 +3,8 @@ const watchers = Symbol('signal:watchers');
 const notify = Symbol('signal:watcher:notify');
 const dirty = Symbol('signal:dirty');
 const currentComputed = Symbol('signal:currentComputed');
+const watched = Symbol('Signal:watched');
+const unwatched = Symbol('Signal:unwatched');
 const initial = Symbol('signal:initial'); // For equality checks in Computed, it must be a unique value
 
 const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
@@ -10,8 +12,7 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 	: cb => setTimeout(cb, 0);
 
 /**
- * @template T
- * @typedef {(t: T, t2: T) => boolean} EqualityCheck
+ * @typedef {(t: any, t2: any) => boolean} EqualityCheck
  */
 
 /**
@@ -23,6 +24,8 @@ const equals = Object.is;
  * @template T
  * @typedef {object} SignalOptions
  * @property {EqualityCheck} [equals] - Custom equality function.
+ * @property {(this: Signal<T>) => void} [Signal.subtle.watched]
+ * @property {(this: Signal<T>) => void} [Signal.subtle.unwatched]
  */
 
 /**
@@ -264,6 +267,9 @@ class Watcher {
 			if (! (signal instanceof State || signal instanceof Computed)) {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
 			} else {
+				if (typeof signal[watched] === 'function') {
+					signal[watched].call(signal);
+				}
 				this.#watched.add(signal);
 				signal[watchers].add(this);
 			}
@@ -279,6 +285,9 @@ class Watcher {
 			if (! (signal instanceof State || signal instanceof Computed)) {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
 			} else {
+				if (typeof signal[unwatched] === 'function') {
+					signal[unwatched].call(signal);
+				}
 				this.#watched.delete(signal);
 				signal[watchers].delete(this);
 
@@ -320,6 +329,8 @@ class Watcher {
  */
 const subtle = {
 	Watcher,
+	watched,
+	unwatched,
 
 	/**
 	 * Runs a function without tracking any signal dependencies.
