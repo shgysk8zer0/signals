@@ -34,15 +34,38 @@ const unwatched = Symbol('Signal:unwatched');
  */
 const initial = Symbol('signal:initial'); // For equality checks in Computed, it must be a unique value
 
-/** @type {typeof globalThis.queueMicrotask} */
+/**
+ * @type {unique symbol}
+ */
+const isWatched = Symbol('Signal:isWatched');
+
+/**
+ * @type {unique symbol}
+ */
+const onWatch = Symbol('Signal:onWatch');
+
+/**
+ * @type {unique symbol}
+ */
+const onUnwatch = Symbol('Signal:onUnwatch');
+
+/**
+ * @type {typeof globalThis.reportError}
+ */
+const reportError = typeof globalThis.reportError === 'function'
+	? globalThis.reportError
+	: err => console.error(err);
+
+/**
+ * @type {typeof globalThis.queueMicrotask}
+ */
 const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 	? globalThis.queueMicrotask
 	: cb => {
 		if (typeof cb !== 'function') {
 			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
 		} else {
-			void Promise.resolve().then(cb).catch(reportError);
-			// setTimeout(cb, 0);
+			void Promise.resolve().then(() => cb()).catch(reportError);
 		}
 	};
 /**
@@ -64,11 +87,14 @@ const equals = Object.is;
 
 /**
  * @template T
+ * @type {SignalOptions<T>}
+ */
+const opts = Object.freeze({ equals });
+
+/**
+ * @template T
  * @typedef {State<T> | Computed<T>} AnySignal<T>
  */
-
-
-const opts = Object.freeze({ equals });
 
 /**
  * A writable signal that holds a value.
@@ -96,10 +122,24 @@ class State {
 	[watched] = null;
 
 	/**
+	 * @type {boolean}
+	 */
+	[isWatched] = false;
+
+	/**
 	 * @type {VoidFunction|null}
 	 */
 	[unwatched] = null;
 
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[onWatch] = null;
+
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[onUnwatch] = null;
 
 	/**
 	 * @type {Set<Computed<T>>}
@@ -196,6 +236,16 @@ class Computed {
 	 * @type {VoidFunction|null}
 	 */
 	[unwatched] = null;
+
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[onWatch] = null;
+
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[onUnwatch] = null;
 
 	/**
 	 * @param {() => T} computation - The function to calculate the value.
@@ -415,6 +465,58 @@ const subtle = {
 			} finally {
 				Signal[currentComputed] = prev;
 			}
+		}
+	},
+
+	/**
+	 *
+	 * @param {Computed<any>|Watcher} s
+	 * @returns {(State<any>|Computed<any>)[]}
+	 */
+	introspectSources(s) {
+		if (! (s instanceof Computed || s instanceof Watcher)) {
+			throw new TypeError('Expected a `Signal.Watcher` or `Signal.Computed`.');
+		} else {
+			return [];
+		}
+	},
+
+	/**
+	 *
+	 * @param {State<any>|Computed<any>} s
+	 * @returns {(Computed<any>|Watcher)[]}
+	 */
+	introspectSinks(s) {
+		if (! (s instanceof State || s instanceof Computed)) {
+			throw new TypeError('Expected a `Signal.State` or `Signal.Computed`.');
+		} else {
+			return [];
+		}
+	},
+
+	/**
+	 *
+	 * @param {State<any>|Computed<any>} s
+	 * @return {boolean}
+	 */
+	hasSinks(s) {
+		if (! (s instanceof State || s instanceof Computed)) {
+			throw new TypeError('Expected a `Signal.State` or `Signal.Computed`.');
+		} else {
+			return true;
+		}
+	},
+
+	/**
+	 *
+	 * @param {Computed<any>|Watcher} s
+	 * @returns {boolean}
+	 */
+	hasSources(s) {
+		if (! (s instanceof Computed || s instanceof Watcher)) {
+			throw new TypeError('Expected a `Signal.Watcher` or `Signal.Computed`.');
+		} else {
+			return true;
 		}
 	},
 
