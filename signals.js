@@ -65,7 +65,7 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 		if (typeof cb !== 'function') {
 			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
 		} else {
-			void Promise.resolve().then(() => cb()).catch(reportError);
+			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
 		}
 	};
 /**
@@ -79,10 +79,10 @@ const equals = Object.is;
 
 /**
  * @template T
- * @typedef {object} SignalOptions
+ * @typedef {object} SignalOptions<T>
  * @property {EqualityCheck} [equals] - Custom equality function.
- * @property {(this: Signal<T>) => void} [Signal.subtle.watched]
- * @property {(this: Signal<T>) => void} [Signal.subtle.unwatched]
+ * @property {(this: AnySignal<T>) => void} [watched]
+ * @property {(this: AnySignal<T>) => void} [unwatched]
  */
 
 /**
@@ -148,7 +148,7 @@ class State {
 
 	/**
 	 * @param {T} value - The initial value.
-	 * @param {SignalOptions<T>} [options]
+	 * @param {SignalOptions<O>} [options]
 	 */
 	constructor(value, options = opts) {
 		if (typeof options !== 'object') {
@@ -156,6 +156,14 @@ class State {
 		} else {
 			this.#equals = options.equals ?? equals;
 			this.#value = value;
+
+			if (typeof options?.[watched] === 'function') {
+				this[onWatch] = options[watched].bind(this);
+			}
+
+			if (typeof options?.[unwatched] === 'function') {
+				this[onUnwatch] = options[unwatched].bind(this);
+			}
 		}
 	}
 
@@ -248,6 +256,11 @@ class Computed {
 	[onUnwatch] = null;
 
 	/**
+	 * @type {boolean}
+	 */
+	[isWatched] = false;
+
+	/**
 	 * @param {() => T} computation - The function to calculate the value.
 	 * @param {SignalOptions<T>} [options]
 	 */
@@ -259,6 +272,14 @@ class Computed {
 		} else {
 			this.#equals = options.equals ?? equals;
 			this.#computation = computation;
+
+			if (typeof options[watched] === 'function') {
+				this[onWatch] = options[watched].bind(this);
+			}
+
+			if (typeof options[unwatched] === 'function') {
+				this[onUnwatch] = options[unwatched].bind(this);
+			}
 		}
 	}
 
@@ -375,8 +396,8 @@ class Watcher {
 			if (! (signal instanceof State || signal instanceof Computed)) {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
 			} else {
-				if (typeof signal[watched] === 'function') {
-					signal[watched].call(signal);
+				if (typeof signal[onWatch] === 'function' && ! signal[isWatched]) {
+					signal[onWatch].call(signal);
 				}
 
 				this.#watched.add(signal);
@@ -395,8 +416,8 @@ class Watcher {
 			if (! (signal instanceof State || signal instanceof Computed)) {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
 			} else {
-				if (typeof signal[unwatched] === 'function') {
-					signal[unwatched].call(signal);
+				if (typeof signal[onUnwatch] === 'function' && signal[isWatched]) {
+					signal[onUnwatch].call(signal);
 				}
 
 				this.#watched.delete(signal);
@@ -444,7 +465,14 @@ class Watcher {
  */
 const subtle = {
 	Watcher,
+	/**
+	 * @type {unique symbol}
+	 */
 	watched,
+
+	/**
+	 * @type {unique s}
+	 */
 	unwatched,
 
 	/**
@@ -543,3 +571,20 @@ export const Signal = {
 	 */
 	[currentComputed]: null,
 };
+
+const a = new Signal.State(1);
+const b = new Signal.State(2);
+
+const sum = new Signal.Computed(() => a.get() + b.get(), {
+	[Signal.subtle.watched]: () => console.log('I always feel like somebody\'s watching me!'),
+	[Signal.subtle.unwatched]: () => console.log('STOP IGNORING ME!!!'),
+});
+
+const watcher = new Signal.subtle.Watcher(() => console.log('Updated'));
+watcher.watch(sum);
+a.set(42);
+
+console.log('Sum:', sum.get());
+// Since updates are handled as a microtask, immediate unwatch cancels watcher
+setTimeout(() => watcher.unwatch(sum), 10);
+
