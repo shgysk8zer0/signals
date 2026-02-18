@@ -1,16 +1,50 @@
 // @ts-check
+/**
+ * @type {unique symbol}
+ */
 const watchers = Symbol('signal:watchers');
+
+/**
+ * @type {unique symbol}
+ */
 const notify = Symbol('signal:watcher:notify');
+
+/**
+ * @type {unique symbol}
+ */
 const dirty = Symbol('signal:dirty');
+
+/**
+ * @type {unique symbol}
+ */
 const currentComputed = Symbol('signal:currentComputed');
+
+/**
+ * @type {unique symbol}
+ */
 const watched = Symbol('Signal:watched');
+
+/**
+ * @type {unique symbol}
+ */
 const unwatched = Symbol('Signal:unwatched');
+
+/**
+ * @type {unique symbol}
+ */
 const initial = Symbol('signal:initial'); // For equality checks in Computed, it must be a unique value
 
+/** @type {typeof globalThis.queueMicrotask} */
 const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 	? globalThis.queueMicrotask
-	: cb => setTimeout(cb, 0);
-
+	: cb => {
+		if (typeof cb !== 'function') {
+			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
+		} else {
+			void Promise.resolve().then(cb).catch(reportError);
+			// setTimeout(cb, 0);
+		}
+	};
 /**
  * @typedef {(t: any, t2: any) => boolean} EqualityCheck
  */
@@ -30,19 +64,16 @@ const equals = Object.is;
 
 /**
  * @template T
- * @typedef {State<T> | Computed<T>} AnySignal
+ * @typedef {State<T> | Computed<T>} AnySignal<T>
  */
+
+
+const opts = Object.freeze({ equals });
 
 /**
  * A writable signal that holds a value.
  * @template T
  */
-
-/**
- * @type {SignalOptions}
- */
-const opts = Object.freeze({ equals });
-
 class State {
 	/**
 	 * @type {T}
@@ -59,22 +90,32 @@ class State {
 	 */
 	[watchers] = new Set();
 
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[watched] = null;
 
 	/**
-	 * @type {Set<Computed>}
+	 * @type {VoidFunction|null}
+	 */
+	[unwatched] = null;
+
+
+	/**
+	 * @type {Set<Computed<T>>}
 	 */
 	#computers = new Set();
 
 	/**
 	 * @param {T} value - The initial value.
-	 * @param {SignalOptions} [options]
+	 * @param {SignalOptions<T>} [options]
 	 */
 	constructor(value, options = opts) {
 		if (typeof options !== 'object') {
 			throw new TypeError('Invalid options.');
 		} else {
-			this.#value = value;
 			this.#equals = options.equals ?? equals;
+			this.#value = value;
 		}
 	}
 
@@ -122,7 +163,7 @@ class Computed {
 	[watchers] = new Set();
 
 	/**
-	 * @type {Set<Computed>}
+	 * @type {Set<Computed<any>>}
 	 */
 	#computed = new Set();
 
@@ -132,7 +173,7 @@ class Computed {
 	#equals;
 
 	/**
-	 * @type {(() => T)}
+	 * @type {() => T}
 	 */
 	#computation;
 
@@ -142,13 +183,23 @@ class Computed {
 	#dirty = true;
 
 	/**
-	 * @type {T}
+	 * @type {T|initial}
 	 */
 	#value = initial;
 
 	/**
+	 * @type {VoidFunction|null}
+	 */
+	[watched] = null;
+
+	/**
+	 * @type {VoidFunction|null}
+	 */
+	[unwatched] = null;
+
+	/**
 	 * @param {() => T} computation - The function to calculate the value.
-	 * @param {SignalOptions} [options]
+	 * @param {SignalOptions<T>} [options]
 	 */
 	constructor(computation, options = opts) {
 		if (typeof computation !== 'function') {
@@ -163,7 +214,8 @@ class Computed {
 
 	/**
 	 * Returns the current derived value, re-computing if dependencies changed.
-	 * @returns {T}
+	 * @this {Computed<T>}
+	 * @returns {T|initial}
 	 */
 	get() {
 		const oldComputed = Signal.subtle.currentComputed();
@@ -200,10 +252,16 @@ class Computed {
 		}
 	}
 
+	/**
+	 * @returns {boolean}
+	 */
 	get [dirty]() {
 		return this.#dirty;
 	}
 
+	/**
+	 * @param {boolean} val
+	 */
 	set [dirty](val) {
 		if (! val) {
 			this.#dirty = false;
@@ -232,17 +290,17 @@ class Watcher {
 	#scheduled = false;
 
 	/**
-	 * @type {Set<AnySignal>}
+	 * @type {Set<AnySignal<any>>}
 	 */
 	#watched = new Set();
 
 	/**
-	 * @type {Set<AnySignal>}
+	 * @type {Set<AnySignal<any>>}
 	 */
 	#pending = new Set();
 
 	/**
-	 * @type {(thi: Watcher) => void}
+	 * @type {(this: Watcher) => void}
 	 */
 	#notify;
 
@@ -260,7 +318,7 @@ class Watcher {
 
 	/**
 	 * Start watching one or more signals.
-	 * @param {...AnySignal} signals
+	 * @param {...AnySignal<any>} signals
 	 */
 	watch(...signals) {
 		for (const signal of signals) {
@@ -270,6 +328,7 @@ class Watcher {
 				if (typeof signal[watched] === 'function') {
 					signal[watched].call(signal);
 				}
+
 				this.#watched.add(signal);
 				signal[watchers].add(this);
 			}
@@ -278,7 +337,8 @@ class Watcher {
 
 	/**
 	 * Stop watching one or more signals.
-	 * @param {...AnySignal} signals
+	 * @template T
+	 * @param {...AnySignal<T>} signals
 	 */
 	unwatch(...signals) {
 		for (const signal of signals) {
@@ -288,6 +348,7 @@ class Watcher {
 				if (typeof signal[unwatched] === 'function') {
 					signal[unwatched].call(signal);
 				}
+
 				this.#watched.delete(signal);
 				signal[watchers].delete(this);
 
@@ -300,12 +361,16 @@ class Watcher {
 
 	/**
 	 * Returns the list of dirty signals.
-	 * @returns {Array<AnySignal>}
+	 * @returns {Array<AnySignal<any>>}
 	 */
 	getPending() {
 		return Array.from(this.#pending);
 	}
 
+	/**
+	 * @template T
+	 * @param {AnySignal<T>} signal
+	 */
 	[notify](signal) {
 		this.#pending.add(signal);
 
@@ -316,7 +381,7 @@ class Watcher {
 				this.#scheduled = false;
 
 				if (this.#pending.size !== 0) {
-					this.#notify.call(this, this);
+					this.#notify.call(this);
 					this.#pending.clear();
 				}
 			});
@@ -355,7 +420,7 @@ const subtle = {
 
 	/**
 	 * Returns the currently executing Computed signal, if any.
-	 * @returns {Computed|null}
+	 * @returns {Computed<any>|null}
 	 */
 	currentComputed() {
 		return Signal[currentComputed];
@@ -372,7 +437,7 @@ export const Signal = {
 	subtle,
 
 	/**
-	 * @type {Computed|null}
+	 * @type {Computed<any>|null}
 	 */
 	[currentComputed]: null,
 };

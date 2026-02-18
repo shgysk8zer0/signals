@@ -9,6 +9,7 @@
   "type": "module",
   "main": "./signals.cjs",
   "module": "./signals.js",
+  "types": "./signals.d.ts",
   "unpkg": "./signals.min.js",
   "exports": {
     ".": {

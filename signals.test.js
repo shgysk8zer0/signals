@@ -103,8 +103,8 @@ describe('Signal.subtle.Watcher', () => {
 		const s = new Signal.State(1);
 		let pendingList = [];
 
-		const w = new Signal.subtle.Watcher((watcher) => {
-			pendingList = watcher.getPending();
+		const w = new Signal.subtle.Watcher(function() {
+			pendingList = this.getPending();
 		});
 
 		w.watch(s);
@@ -115,6 +115,7 @@ describe('Signal.subtle.Watcher', () => {
 		await tick();
 
 		assert.strictEqual(pendingList.length, 1);
+		console.log({ pendingList, s });
 		assert.ok(pendingList.includes(s));
 	});
 

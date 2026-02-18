@@ -76,8 +76,8 @@ export declare namespace Signal {
         }
 
         // Hooks to observe being watched or no longer watched
-        var watched: Symbol;
-        var unwatched: Symbol;
+        const watched: unique symbol;
+        const unwatched: unique symbol;
     }
 
     interface SignalOptions<T> {
