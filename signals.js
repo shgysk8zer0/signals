@@ -1,21 +1,9 @@
 // @ts-check
 /**
- * Internal slot to hold Set<Watcher>
- * @type {unique symbol}
- */
-const watchers = Symbol('signal:watchers');
-
-/**
  * Internal slot for the callback to call to nnotify of changes
  * @type {unique symbol}
  */
 const notify = Symbol('signal:watcher:notify');
-
-/**
- * Internal slot for Computed to mark that a dependency has changed
- * @type {unique symbol}
- */
-const dirty = Symbol('signal:dirty');
 
 /**
  * @type {unique symbol}
@@ -59,6 +47,16 @@ const onWatch = Symbol('Signal:onWatch');
  * @type {unique symbol}
  */
 const onUnwatch = Symbol('Signal:onUnwatch');
+
+/**
+ * @type {unique symbol}
+ */
+const sources = Symbol('Signal:sources');
+
+/**
+ * @type {unique symbol}
+ */
+const sinks = Symbol('Signal:sinks');
 
 /**
  * @type {typeof globalThis.reportError}
@@ -127,18 +125,9 @@ class State {
 	#equals;
 
 	/**
-	 * @type {Set<Watcher>}
-	 */
-
-	/**
 	 * @type {VoidFunction|null}
 	 */
 	[unwatched] = null;
-
-	/**
-	 * @type {Set<Watcher>}
-	 */
-	[watchers] = new Set();
 
 	/**
 	 * @type {VoidFunction|null}
@@ -156,9 +145,14 @@ class State {
 	[isWatched] = false;
 
 	/**
-	 * @type {Set<Computed<T>>}
+	 * @type {Set<Computed<any>|Watcher>}
 	 */
-	#computers = new Set();
+	[sinks] = new Set();
+
+	/**
+	 * @type {Set<Set<any>|Computed<any>>}
+	 */
+	[sources] = new Set();
 
 	/**
 	 * Create a state Signal starting with the value T
@@ -190,8 +184,9 @@ class State {
 	get() {
 		const currentComputed = Signal.subtle.currentComputed();
 
-		if (currentComputed instanceof Computed) {
-			this.#computers.add(currentComputed);
+		if (currentComputed instanceof Computed && ! currentComputed[sources].has(this)) {
+			currentComputed[sources].add(this);
+			this[sinks].add(currentComputed);
 		}
 
 		return this.#value;
@@ -206,12 +201,8 @@ class State {
 		if (! this.#equals(this.#value, newValue)) {
 			this.#value = newValue;
 
-			for (const computed of this.#computers) {
-				computed[dirty] = true;
-			}
-
-			for (const watcher of this[watchers]) {
-				watcher[notify](this);
+			for (const sink of Signal.subtle.introspectSinks(this)) {
+				sink[notify](this);
 			}
 		}
 	}
@@ -223,16 +214,6 @@ class State {
  * @template T
  */
 class Computed {
-	/**
-	 * @type {Set<Watcher>}
-	 */
-	[watchers] = new Set();
-
-	/**
-	 * @type {Set<Computed<any>>}
-	 */
-	#computed = new Set();
-
 	/**
 	 * @type {EqualityCheck}
 	 */
@@ -279,6 +260,16 @@ class Computed {
 	[isWatched] = false;
 
 	/**
+	 * @type {Set<Computed<any>|Watcher>}
+	 */
+	[sinks] = new Set();
+
+	/**
+	 * @type {Set<State<any>|Computed<any>>}
+	 */
+	[sources] = new Set();
+
+	/**
 	 * Create a Signal which evaluates to the value returned by the callback.
 	 * Callback is called with this signal as the this value.
 	 *
@@ -315,7 +306,7 @@ class Computed {
 
 		try {
 			if (oldComputed !== this && oldComputed !== null) {
-				this.#computed.add(oldComputed);
+				this[sources].add(oldComputed);
 			}
 
 			Signal[currentComputed] = this;
@@ -323,19 +314,20 @@ class Computed {
 			if (this.#dirty) {
 				const val = this.#computation();
 
+				this[sources].clear();
+				for (const source of Signal.subtle.introspectSources(this)) {
+					source[sinks].delete(this);
+				}
+
 				if (! this.#equals(val, this.#value)) {
 					this.#value = val;
 
-					for (const computed of this.#computed) {
-						computed[dirty] = true;
-					}
-
-					for (const watcher of this[watchers]) {
-						watcher[notify](this);
+					for (const sink of Signal.subtle.introspectSinks(this)) {
+						sink[notify](this);
 					}
 				}
 
-				this[dirty] = false;
+				this.#dirty = false;
 				return val;
 			} else {
 				return this.#value;
@@ -346,28 +338,17 @@ class Computed {
 	}
 
 	/**
-	 * @returns {boolean}
+	 * Notifiies a `Signal.Computed` when a source has changed
+	 *
+	 * @param {State<any>|Computed<any>} source
 	 */
-	get [dirty]() {
-		return this.#dirty;
-	}
+	[notify](source) {
+		this.#dirty = true;
+		this[sources].add(source);
+		source[sinks].add(this);
 
-	/**
-	 * @param {boolean} val
-	 */
-	set [dirty](val) {
-		if (! val) {
-			this.#dirty = false;
-		} else if (! this.#dirty || this.#value === initial) {
-			this.#dirty = true;
-
-			for (const computed of this.#computed) {
-				computed[dirty] = true;
-			}
-
-			for (const watcher of this[watchers]) {
-				watcher[notify](this);
-			}
+		for (const sink of Signal.subtle.introspectSinks(this)) {
+			sink[notify](this);
 		}
 	}
 }
@@ -385,17 +366,17 @@ class Watcher {
 	/**
 	 * @type {Set<AnySignal<any>>}
 	 */
-	#watched = new Set();
-
-	/**
-	 * @type {Set<AnySignal<any>>}
-	 */
 	#pending = new Set();
 
 	/**
 	 * @type {(this: Watcher) => void}
 	 */
 	#notify;
+
+	/**
+	 * @type {Set<AnySignal<any>}
+	 */
+	[sources] = new Set();
 
 
 	/**
@@ -430,8 +411,8 @@ class Watcher {
 					signal[onWatch].call(signal);
 				}
 
-				this.#watched.add(signal);
-				signal[watchers].add(this);
+				this[sources].add(signal);
+				signal[sinks].add(this);
 			}
 		}
 	}
@@ -450,12 +431,8 @@ class Watcher {
 					signal[onUnwatch].call(signal);
 				}
 
-				this.#watched.delete(signal);
-				signal[watchers].delete(this);
-
-				if (this.#pending.has(signal)) {
-					this.#pending.delete(signal);
-				}
+				signal[sinks].delete(this);
+				this[sources].delete(signal);
 			}
 		}
 	}
@@ -471,6 +448,8 @@ class Watcher {
 	}
 
 	/**
+	 * Notify a `Signal.subtle.Watcher` when a source has changed
+	 *
 	 * @template T
 	 * @param {AnySignal<T>} signal
 	 */
@@ -556,7 +535,7 @@ const subtle = {
 		if (! (s instanceof Computed || s instanceof Watcher)) {
 			throw new TypeError('Expected a `Signal.Watcher` or `Signal.Computed`.');
 		} else {
-			return [];
+			return Array.from(s[sources]);
 		}
 	},
 
@@ -572,7 +551,7 @@ const subtle = {
 		if (! (s instanceof State || s instanceof Computed)) {
 			throw new TypeError('Expected a `Signal.State` or `Signal.Computed`.');
 		} else {
-			return [];
+			return Array.from(s[sinks]);
 		}
 	},
 
@@ -587,7 +566,7 @@ const subtle = {
 		if (! (s instanceof State || s instanceof Computed)) {
 			throw new TypeError('Expected a `Signal.State` or `Signal.Computed`.');
 		} else {
-			return true;
+			return s[sinks].size !== 0;
 		}
 	},
 
@@ -603,7 +582,7 @@ const subtle = {
 		if (! (s instanceof Computed || s instanceof Watcher)) {
 			throw new TypeError('Expected a `Signal.Watcher` or `Signal.Computed`.');
 		} else {
-			return true;
+			return s[sources].size !== 0;
 		}
 	},
 };
@@ -623,3 +602,16 @@ export const Signal = {
 	[currentComputed]: null,
 };
 
+const a = new Signal.State(1);
+const b = new Signal.State(2);
+const sum = new Signal.Computed(() => a.get() + b.get());
+const watcher = new Signal.subtle.Watcher(() => console.log('Watcher fired'));
+watcher.watch(sum);
+b.set(4);
+
+console.log({
+	sum: sum.get(),
+	sinks: Signal.subtle.introspectSinks(sum),
+	sources: Signal.subtle.introspectSources(watcher),
+	pending: watcher.getPending(),
+});

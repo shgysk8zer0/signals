@@ -70,6 +70,7 @@ describe('Signal.Computed', () => {
 		let calls = 0;
 		const c = new Signal.Computed(() => {
 			calls++;
+			console.log(`Called getter on c ${calls} times.`);
 			return s.get();
 		});
 
@@ -84,10 +85,10 @@ describe('Signal.Computed', () => {
 	});
 
 	it('should handle the diamond problem (glitch-free pull)', () => {
-		const root = new Signal.State(1);
-		const left = new Signal.Computed(() => root.get() * 2);
-		const right = new Signal.Computed(() => root.get() * 3);
-		const sum = new Signal.Computed(() => left.get() + right.get());
+		const root = new Signal.State(1); // 1
+		const left = new Signal.Computed(() => root.get() * 2); // 2
+		const right = new Signal.Computed(() => root.get() * 3); // 3
+		const sum = new Signal.Computed(() => left.get() + right.get()); //5
 
 		// 1*2 + 1*3 = 5
 		assert.strictEqual(sum.get(), 5);
