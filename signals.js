@@ -78,16 +78,15 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 const equals = Object.is;
 
 /**
- * @template T
- * @typedef {object} SignalOptions<T>
- * @property {EqualityCheck} [equals] - Custom equality function.
- * @property {(this: AnySignal<T>) => void} [watched]
- * @property {(this: AnySignal<T>) => void} [unwatched]
+ * @typedef {{
+ * 	equals?: EqualityCheck,
+ * 	[watched]?: (this: AnySignal<any>) => void,
+ *  [unwatched]?: (this: AnySignal<any>) => void,
+ * }} SignalOptions
  */
 
 /**
- * @template T
- * @type {SignalOptions<T>}
+ * @type {SignalOptions}
  */
 const opts = Object.freeze({ equals });
 
@@ -114,22 +113,16 @@ class State {
 	/**
 	 * @type {Set<Watcher>}
 	 */
-	[watchers] = new Set();
-
-	/**
-	 * @type {VoidFunction|null}
-	 */
-	[watched] = null;
-
-	/**
-	 * @type {boolean}
-	 */
-	[isWatched] = false;
 
 	/**
 	 * @type {VoidFunction|null}
 	 */
 	[unwatched] = null;
+
+	/**
+	 * @type {Set<Watcher>}
+	 */
+	[watchers] = new Set();
 
 	/**
 	 * @type {VoidFunction|null}
@@ -142,13 +135,18 @@ class State {
 	[onUnwatch] = null;
 
 	/**
+	 * @type {boolean}
+	 */
+	[isWatched] = false;
+
+	/**
 	 * @type {Set<Computed<T>>}
 	 */
 	#computers = new Set();
 
 	/**
 	 * @param {T} value - The initial value.
-	 * @param {SignalOptions<O>} [options]
+	 * @param {SignalOptions} options
 	 */
 	constructor(value, options = opts) {
 		if (typeof options !== 'object') {
@@ -262,7 +260,7 @@ class Computed {
 
 	/**
 	 * @param {() => T} computation - The function to calculate the value.
-	 * @param {SignalOptions<T>} [options]
+	 * @param {SignalOptions} [options]
 	 */
 	constructor(computation, options = opts) {
 		if (typeof computation !== 'function') {

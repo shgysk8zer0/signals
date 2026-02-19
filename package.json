@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/signals",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A polyfill for the current (stage 1) Signals proposal",
   "keywords": [
     "signal-proposal",
@@ -78,7 +78,7 @@
     "@aegisjsproject/dev-server": "^1.0.5",
     "@aegisjsproject/http-utils": "^1.0.4",
     "@rollup/plugin-terser": "^0.4.4",
-    "@shgysk8zer0/eslint-config": "^1.0.4",
+    "@shgysk8zer0/eslint-config": "^1.0.5",
     "@shgysk8zer0/http-server": "^1.1.1",
     "@shgysk8zer0/importmap": "^1.7.9",
     "eslint": "^10.0.0",

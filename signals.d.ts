@@ -3,7 +3,7 @@ interface Signal<T> {
     get(): T;
 }
 
-export declare namespace Signal {
+export declare namespace SignalX {
     // A read-write Signal
     class State<T> implements Signal<T> {
         // Create a state Signal starting with the value t
