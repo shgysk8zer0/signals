@@ -1,8 +1,9 @@
 {
   "name": "@shgysk8zer0/signals",
   "version": "0.0.1",
-  "description": "A polyfill for the current (stage 1) Signals proposal",
+  "description": "A polyfill for the (currently stage 1) Signals API proposal",
   "keywords": [
+    "tc39-signals",
     "signal-proposal",
     "reactivity"
   ],
@@ -56,7 +57,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shgysk8zer0/npm-template.git"
+    "url": "git+https://github.com/shgysk8zer0/signals.git"
   },
   "author": "Chris Zuber <admin@kernvalley.us>",
   "license": "MIT",
@@ -71,9 +72,9 @@
     }
   ],
   "bugs": {
-    "url": "https://github.com/shgysk8zer0/npm-template/issues"
+    "url": "https://github.com/shgysk8zer0/signals/issues"
   },
-  "homepage": "https://github.com/shgysk8zer0/npm-template#readme",
+  "homepage": "https://github.com/shgysk8zer0/signals#readme",
   "devDependencies": {
     "@aegisjsproject/dev-server": "^1.0.5",
     "@aegisjsproject/http-utils": "^1.0.4",
