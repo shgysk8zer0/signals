@@ -20,11 +20,15 @@ const dirty = Symbol('signal:dirty');
 const currentComputed = Symbol('signal:currentComputed');
 
 /**
+ * Callback called when isWatched becomes true, if it was previously false
+ *
  * @type {unique symbol}
  */
 const watched = Symbol('Signal:watched');
 
 /**
+ * Callback called whenever isWatched becomes false, if it was previously true
+ *
  * @type {unique symbol}
  */
 const unwatched = Symbol('Signal:unwatched');
@@ -65,6 +69,7 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 		if (typeof cb !== 'function') {
 			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
 		} else {
+			// Complains about `Promise.try`
 			// @ts-ignore
 			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
 		}
@@ -74,6 +79,9 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
  */
 
 /**
+ * Custom comparison function between old and new value. Default: Object.is.
+ * The signal is passed in as the this value for context.
+ *
  * @type {EqualityCheck}
  */
 const equals = Object.is;
@@ -97,7 +105,7 @@ const opts = Object.freeze({ equals });
  */
 
 /**
- * A writable signal that holds a value.
+ * A read-write Signal
  * @template T
  */
 class State {
@@ -146,6 +154,7 @@ class State {
 	#computers = new Set();
 
 	/**
+	 * Create a state Signal starting with the value T
 	 * @param {T} value - The initial value.
 	 * @param {SignalOptions} options
 	 */
@@ -167,7 +176,8 @@ class State {
 	}
 
 	/**
-	 * Returns the current value and registers a dependency if called within a reactive context.
+	 * Get the value of the signal
+	 *
 	 * @returns {T}
 	 */
 	get() {
@@ -181,7 +191,8 @@ class State {
 	}
 
 	/**
-	 * Updates the value and notifies dependents.
+	 * Set the state Signal value to T
+	 *
 	 * @param {T} newValue
 	 */
 	set(newValue) {
@@ -200,7 +211,8 @@ class State {
 }
 
 /**
- * A read-only signal that derives its value from other signals.
+ * A Signal which is a formula based on other Signals
+ *
  * @template T
  */
 class Computed {
@@ -260,6 +272,9 @@ class Computed {
 	[isWatched] = false;
 
 	/**
+	 * Create a Signal which evaluates to the value returned by the callback.
+	 * Callback is called with this signal as the this value.
+	 *
 	 * @param {() => T} computation - The function to calculate the value.
 	 * @param {SignalOptions} [options]
 	 */
@@ -283,7 +298,8 @@ class Computed {
 	}
 
 	/**
-	 * Returns the current derived value, re-computing if dependencies changed.
+	 * Get the value of the signal
+	 *
 	 * @this {Computed<T>}
 	 * @returns {T|initial}
 	 */
@@ -376,6 +392,10 @@ class Watcher {
 
 
 	/**
+	 * When a (recursive) source of Watcher is written to, call this callback,
+	 * if it hasn't already been called since the last `watch` call.
+	 * No signals may be read or written during the notify.
+	 *
 	 * @param {(this: Watcher) => void} notify - Called synchronously when a watched signal becomes dirty.
 	 */
 	constructor(notify) {
@@ -387,7 +407,11 @@ class Watcher {
 	}
 
 	/**
-	 * Start watching one or more signals.
+	 * Add these signals to the Watcher's set, and set the watcher to run its
+	 * notify callback next time any signal in the set (or one of its dependencies) changes.
+	 * Can be called with no arguments just to reset the "notified" state, so that
+	 * the notify callback will be invoked again.
+	 *
 	 * @param {...AnySignal<any>} signals
 	 */
 	watch(...signals) {
@@ -406,7 +430,7 @@ class Watcher {
 	}
 
 	/**
-	 * Stop watching one or more signals.
+	 * Remove these signals from the watched set (e.g., for an effect which is disposed)
 	 * @template T
 	 * @param {...AnySignal<T>} signals
 	 */
@@ -430,7 +454,9 @@ class Watcher {
 	}
 
 	/**
-	 * Returns the list of dirty signals.
+	 * Returns the set of sources in the Watcher's set which are still dirty, or is a computed signal
+	 * with a source which is dirty or pending and hasn't yet been re-evaluated
+	 *
 	 * @returns {Array<AnySignal<any>>}
 	 */
 	getPending() {
@@ -460,22 +486,29 @@ class Watcher {
 }
 
 /**
- * Utilities for framework authors and advanced use cases.
+ * This namespace includes "advanced" features that are better to
+ * leave for framework authors rather than application developers.
+ * Analogous to `crypto.subtle`
+ *
+ * @namespace subtle
  */
 const subtle = {
 	Watcher,
 	/**
+	 * Hook to observe being watched
 	 * @type {unique symbol}
 	 */
 	watched,
 
 	/**
+	 * Hook to observe no longer watched
 	 * @type {unique s}
 	 */
 	unwatched,
 
 	/**
-	 * Runs a function without tracking any signal dependencies.
+	 * Run a callback with all tracking disabled
+	 *
 	 * @template T
 	 * @param {() => T} cb
 	 * @returns {T}
@@ -496,6 +529,18 @@ const subtle = {
 	},
 
 	/**
+	 * Get the current computed signal which is tracking any signal reads, if any
+	 *
+	 * @returns {Computed<any>|null}
+	 */
+	currentComputed() {
+		return Signal[currentComputed];
+	},
+
+	/**
+	 * Returns ordered list of all signals which this one referenced
+	 * during the last time it was evaluated.
+	 * For a Watcher, lists the set of signals which it is watching.
 	 *
 	 * @param {Computed<any>|Watcher} s
 	 * @returns {(State<any>|Computed<any>)[]}
@@ -509,6 +554,9 @@ const subtle = {
 	},
 
 	/**
+	 * Returns the Watchers that this signal is contained in, plus any
+	 * Computed signals which read this signal last time they were evaluated,
+	 * if that computed signal is (recursively) watched.
 	 *
 	 * @param {State<any>|Computed<any>} s
 	 * @returns {(Computed<any>|Watcher)[]}
@@ -522,6 +570,8 @@ const subtle = {
 	},
 
 	/**
+	 * True if this signal is "live", in that it is watched by a Watcher,
+	 * or it is read by a Computed signal which is (recursively) live.
 	 *
 	 * @param {State<any>|Computed<any>} s
 	 * @return {boolean}
@@ -535,6 +585,9 @@ const subtle = {
 	},
 
 	/**
+	 * True if this element is "reactive", in that it depends
+	 * on some other signal. A Computed where hasSources is false
+	 * will always return the same constant.
 	 *
 	 * @param {Computed<any>|Watcher} s
 	 * @returns {boolean}
@@ -546,14 +599,6 @@ const subtle = {
 			return true;
 		}
 	},
-
-	/**
-	 * Returns the currently executing Computed signal, if any.
-	 * @returns {Computed<any>|null}
-	 */
-	currentComputed() {
-		return Signal[currentComputed];
-	}
 };
 
 /**
@@ -570,20 +615,4 @@ export const Signal = {
 	 */
 	[currentComputed]: null,
 };
-
-const a = new Signal.State(1);
-const b = new Signal.State(2);
-
-const sum = new Signal.Computed(() => a.get() + b.get(), {
-	[Signal.subtle.watched]: () => console.log('I always feel like somebody\'s watching me!'),
-	[Signal.subtle.unwatched]: () => console.log('STOP IGNORING ME!!!'),
-});
-
-const watcher = new Signal.subtle.Watcher(() => console.log('Updated'));
-watcher.watch(sum);
-a.set(42);
-
-console.log('Sum:', sum.get());
-// Since updates are handled as a microtask, immediate unwatch cancels watcher
-setTimeout(() => watcher.unwatch(sum), 10);
 
