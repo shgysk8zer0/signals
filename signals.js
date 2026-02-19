@@ -65,6 +65,7 @@ const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
 		if (typeof cb !== 'function') {
 			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
 		} else {
+			// @ts-ignore
 			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
 		}
 	};

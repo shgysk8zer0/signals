@@ -86,9 +86,11 @@ export declare namespace SignalX {
         equals?: (this: Signal<T>, t: T, t2: T) => boolean;
 
         // Callback called when isWatched becomes true, if it was previously false
+        // @ts-ignore
         [Signal.subtle.watched]?: (this: Signal<T>) => void;
 
         // Callback called whenever isWatched becomes false, if it was previously true
+        // @ts-ignore
         [Signal.subtle.unwatched]?: (this: Signal<T>) => void;
     }
 }
