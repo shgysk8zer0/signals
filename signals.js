@@ -306,7 +306,8 @@ class Computed {
 
 		try {
 			if (oldComputed !== this && oldComputed !== null) {
-				this[sources].add(oldComputed);
+				oldComputed[sources].add(this);
+				this[sinks].add(oldComputed);
 			}
 
 			Signal[currentComputed] = this;
@@ -601,17 +602,3 @@ export const Signal = {
 	 */
 	[currentComputed]: null,
 };
-
-const a = new Signal.State(1);
-const b = new Signal.State(2);
-const sum = new Signal.Computed(() => a.get() + b.get());
-const watcher = new Signal.subtle.Watcher(() => console.log('Watcher fired'));
-watcher.watch(sum);
-b.set(4);
-
-console.log({
-	sum: sum.get(),
-	sinks: Signal.subtle.introspectSinks(sum),
-	sources: Signal.subtle.introspectSources(watcher),
-	pending: watcher.getPending(),
-});
