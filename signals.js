@@ -1,15 +1,18 @@
 // @ts-check
 /**
+ * Internal slot to hold Set<Watcher>
  * @type {unique symbol}
  */
 const watchers = Symbol('signal:watchers');
 
 /**
+ * Internal slot for the callback to call to nnotify of changes
  * @type {unique symbol}
  */
 const notify = Symbol('signal:watcher:notify');
 
 /**
+ * Internal slot for Computed to mark that a dependency has changed
  * @type {unique symbol}
  */
 const dirty = Symbol('signal:dirty');
@@ -20,35 +23,39 @@ const dirty = Symbol('signal:dirty');
 const currentComputed = Symbol('signal:currentComputed');
 
 /**
- * Callback called when isWatched becomes true, if it was previously false
+ * Callback called when isWatched becomes true, if it was previously false (`Signal.subtle.watched`)
  *
  * @type {unique symbol}
  */
-const watched = Symbol('Signal:watched');
+const watched = Symbol('Signal:subtle:watched');
 
 /**
- * Callback called whenever isWatched becomes false, if it was previously true
+ * Callback called whenever isWatched becomes false, if it was previously true  (`Signal.subtle.unwatched`)
  *
  * @type {unique symbol}
  */
-const unwatched = Symbol('Signal:unwatched');
+const unwatched = Symbol('Signal:subtle:unwatched');
 
 /**
+ * For equality checks in Computed, it must be a unique value
  * @type {unique symbol}
  */
-const initial = Symbol('signal:initial'); // For equality checks in Computed, it must be a unique value
+const initial = Symbol('signal:initial');
 
 /**
+ * Internal slot for determining calling `Signal.subtle.watched` and `Signal.subtle.unwatched` callbacks
  * @type {unique symbol}
  */
 const isWatched = Symbol('Signal:isWatched');
 
 /**
+ * Internal slot for State|Computed to store the `Signal.subtle.watched` callback
  * @type {unique symbol}
  */
 const onWatch = Symbol('Signal:onWatch');
 
 /**
+ * Internal slot for State|Computed to store the `Signal.subtle.unwatched` callback
  * @type {unique symbol}
  */
 const onUnwatch = Symbol('Signal:onUnwatch');
