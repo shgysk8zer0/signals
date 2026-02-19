@@ -195,17 +195,17 @@ describe('Signal.subtle Introspection', () => {
 
 		assert.strictEqual(Signal.subtle.hasSinks(s1), true);
 		assert.strictEqual(Signal.subtle.hasSinks(s2), true);
-		// assert.strictEqual(Signal.subtle.hasSources(c), true);
+		assert.strictEqual(Signal.subtle.hasSources(c), true);
 
 		const s1Sinks = Signal.subtle.introspectSinks(s1);
-		// const cSources = Signal.subtle.introspectSources(c);
+		const cSources = Signal.subtle.introspectSources(c);
 
 		assert.strictEqual(s1Sinks.length, 1);
 		assert.strictEqual(s1Sinks[0], c);
 
-		// assert.strictEqual(cSources.length, 2);
-		// assert.ok(cSources.includes(s1));
-		// assert.ok(cSources.includes(s2));
+		assert.strictEqual(cSources.length, 2);
+		assert.ok(cSources.includes(s1));
+		assert.ok(cSources.includes(s2));
 	});
 
 	it('should correctly identify sources and sinks involving a Watcher', () => {

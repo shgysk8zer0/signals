@@ -313,12 +313,14 @@ class Computed {
 			Signal[currentComputed] = this;
 
 			if (this.#dirty) {
-				const val = this.#computation();
-
-				this[sources].clear();
+				// Must clear prior dependencies BEFORE computation
 				for (const source of Signal.subtle.introspectSources(this)) {
 					source[sinks].delete(this);
 				}
+
+				this[sources].clear();
+
+				const val = this.#computation();
 
 				if (! this.#equals(val, this.#value)) {
 					this.#value = val;
@@ -334,6 +336,7 @@ class Computed {
 				return this.#value;
 			}
 		} finally {
+			// Restore previous context
 			Signal[currentComputed] = oldComputed;
 		}
 	}
@@ -375,7 +378,7 @@ class Watcher {
 	#notify;
 
 	/**
-	 * @type {Set<AnySignal<any>}
+	 * @type {Set<AnySignal<any>>}
 	 */
 	[sources] = new Set();
 
