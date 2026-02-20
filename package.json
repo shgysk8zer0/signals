@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/signals",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A polyfill for the (currently stage 1) Signals API proposal",
   "keywords": [
     "tc39-signals",

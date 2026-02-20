@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.0.2] - 2026-02-19
+
+### Changed
+- Version bump to get Package Provenance on npm
+
+### Removed
+- Do not include other polyfills/patches (`reportError` and `queuMicroTask`)
+
 ## [v0.0.1] - 2026-02-19
 
 Initial Release
