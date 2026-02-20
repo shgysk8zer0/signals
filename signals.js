@@ -344,7 +344,7 @@ class Watcher {
 	/**
 	 * @type {boolean}
 	 */
-	#scheduled = false;
+	#isWatched = false;
 
 	/**
 	 * @type {Set<AnySignal<any>>}
@@ -386,11 +386,14 @@ class Watcher {
 	 * @param {...AnySignal<any>} signals
 	 */
 	watch(...signals) {
+		this.#isWatched = true;
+
 		for (const signal of signals) {
 			if (! (signal instanceof State || signal instanceof Computed)) {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
-			} else {
+			} else if (! this[sources].has(signal)) {
 				if (typeof signal[onWatch] === 'function' && ! signal[isWatched]) {
+					signal[isWatched] = true;
 					signal[onWatch].call(signal);
 				}
 
@@ -411,7 +414,12 @@ class Watcher {
 				throw new TypeError('Signal must be an instance of `Signal.State` or `Signal.Computed`.');
 			} else {
 				if (typeof signal[onUnwatch] === 'function' && signal[isWatched]) {
-					signal[onUnwatch].call(signal);
+					const watchers = Signal.subtle.introspectSinks(signal).filter(sink => sink instanceof Signal.subtle.Watcher);
+
+					if (watchers.length === 1) {
+						signal[isWatched] = false;
+						signal[onUnwatch].call(signal);
+					}
 				}
 
 				signal[sinks].delete(this);
@@ -427,7 +435,9 @@ class Watcher {
 	 * @returns {Array<AnySignal<any>>}
 	 */
 	getPending() {
-		return Array.from(this.#pending);
+		const pending = Array.from(this.#pending);
+		this.#pending.clear();
+		return pending;
 	}
 
 	/**
@@ -438,18 +448,8 @@ class Watcher {
 	 */
 	[notify](signal) {
 		this.#pending.add(signal);
-
-		if (! this.#scheduled) {
-			this.#scheduled = true;
-
-			queueMicrotask(() => {
-				this.#scheduled = false;
-
-				if (this.#pending.size !== 0) {
-					this.#notify.call(this);
-					this.#pending.clear();
-				}
-			});
+		if (this.#isWatched) {
+			this.#notify.call(this);
 		}
 	}
 }
@@ -584,3 +584,5 @@ export const Signal = {
 	 */
 	[currentComputed]: null,
 };
+
+export { Signal as SignalShim };
