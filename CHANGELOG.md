@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.0.3] - 2026-02-20
+
+### Fixed
+- Notify in `Signal.subtle.Watcher` synchronously
+- Only fire `Signal.subtle.watched` and `Signal.subtle.unwatched` when changing the watched state
+
 ## [v0.0.2] - 2026-02-19
 
 ### Changed

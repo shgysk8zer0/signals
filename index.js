@@ -21,7 +21,8 @@ class HTMLListElement extends HTMLElement {
 		return frag;
 	});
 
-	#watcher = new Signal.subtle.Watcher(() => {
+	#watcher = new Signal.subtle.Watcher(async () => {
+		await scheduler.yield();
 		this.#shadow.getElementById('list').replaceChildren(this.#computed.get());
 	});
 

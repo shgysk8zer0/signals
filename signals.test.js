@@ -3,30 +3,6 @@ import assert from 'node:assert';
 import { Signal } from './signals.js';
 
 
-
-/**
- * @type {typeof globalThis.reportError}
- */
-globalThis.reportError = typeof globalThis.reportError === 'function'
-	? globalThis.reportError
-	: err => console.error(err);
-
-/**
- * @type {typeof globalThis.queueMicrotask}
- */
-globalThis.queueMicrotask = typeof globalThis.queueMicrotask === 'function'
-	? globalThis.queueMicrotask
-	: cb => {
-		if (typeof cb !== 'function') {
-			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
-		} else {
-			// Complains about `Promise.try`
-			// @ts-ignore
-			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
-		}
-	};
-
-
 // Helper for the polyfilled requestAnimationFrame (10ms delay)
 const tick = () => new Promise(r => setTimeout(r, 10));
 
@@ -125,7 +101,7 @@ describe('Signal.Computed', () => {
 });
 
 describe('Signal.subtle.Watcher', () => {
-	it('should notify asynchronously when signals change', async () => {
+	it('should notify synchronously when signals change', async () => {
 		const s = new Signal.State(1);
 		let pendingList = [];
 
@@ -136,12 +112,9 @@ describe('Signal.subtle.Watcher', () => {
 		w.watch(s);
 		s.set(2);
 
-		assert.strictEqual(pendingList.length, 0, 'Should be async');
+		assert.strictEqual(pendingList.length, 1, 'Should be sync');
 
 		await tick();
-
-		assert.strictEqual(pendingList.length, 1);
-		console.log({ pendingList, s });
 		assert.ok(pendingList.includes(s));
 	});
 
@@ -160,24 +133,6 @@ describe('Signal.subtle.Watcher', () => {
 		await new Promise(resolve => setTimeout(resolve, 50));
 
 		assert.strictEqual(callCount, 0);
-	});
-
-	it('should batch updates (deduplicate notifications)', async () => {
-		const s = new Signal.State(1);
-		let callCount = 0;
-
-		const w = new Signal.subtle.Watcher(() => {
-			callCount++;
-		});
-
-		w.watch(s);
-		s.set(2);
-		s.set(3);
-		s.set(4);
-
-		await tick();
-
-		assert.strictEqual(callCount, 1, 'Should only notify once per frame');
 	});
 });
 
@@ -255,5 +210,76 @@ describe('Signal.subtle Introspection', () => {
 
 		assert.strictEqual(Signal.subtle.hasSinks(s), false);
 		assert.strictEqual(Signal.subtle.hasSources(w), false);
+	});
+});
+
+describe('Signal Lifecycle Hooks (watched / unwatched)', () => {
+	it('should trigger when a State is directly watched and unwatched', () => {
+		let watchedCount = 0;
+		let unwatchedCount = 0;
+
+		const s = new Signal.State(1, {
+			[Signal.subtle.watched]: () => watchedCount++,
+			[Signal.subtle.unwatched]: () => unwatchedCount++
+		});
+
+		const w = new Signal.subtle.Watcher(() => {});
+
+		assert.strictEqual(watchedCount, 0, 'Should not be watched initially');
+		assert.strictEqual(unwatchedCount, 0);
+
+		w.watch(s);
+		assert.strictEqual(watchedCount, 1, 'Watched hook should fire when observed');
+		assert.strictEqual(unwatchedCount, 0);
+
+		w.unwatch(s);
+		assert.strictEqual(watchedCount, 1);
+		assert.strictEqual(unwatchedCount, 1, 'Unwatched hook should fire when no longer observed');
+	});
+
+	it('should only trigger on the first watcher and last unwatcher (0->1 and 1->0)', () => {
+		let watchedCount = 0;
+		let unwatchedCount = 0;
+
+		const s = new Signal.State(1, {
+			[Signal.subtle.watched]: () => watchedCount++,
+			[Signal.subtle.unwatched]: () => unwatchedCount++
+		});
+
+		const w1 = new Signal.subtle.Watcher(() => {});
+		const w2 = new Signal.subtle.Watcher(() => {});
+
+		w1.watch(s);
+		assert.strictEqual(watchedCount, 1, 'Fires on first watch');
+
+		w2.watch(s);
+		assert.strictEqual(watchedCount, 1, 'Does not fire again on second watch');
+
+		w1.unwatch(s);
+		assert.strictEqual(unwatchedCount, 0, 'Does not fire unwatched until ALL watchers are gone');
+
+		w2.unwatch(s);
+		assert.strictEqual(unwatchedCount, 1, 'Fires unwatched when last watcher is removed');
+	});
+
+	it('should trigger on a Computed signal when it becomes observed', () => {
+		let watchedCount = 0;
+		let unwatchedCount = 0;
+
+		const s = new Signal.State(1);
+		const c = new Signal.Computed(() => s.get(), {
+			[Signal.subtle.watched]: () => watchedCount++,
+			[Signal.subtle.unwatched]: () => unwatchedCount++
+		});
+
+		const w = new Signal.subtle.Watcher(() => {});
+
+		assert.strictEqual(watchedCount, 0);
+
+		w.watch(c);
+		assert.strictEqual(watchedCount, 1, 'Watched hook should fire on Computed');
+
+		w.unwatch(c);
+		assert.strictEqual(unwatchedCount, 1, 'Unwatched hook should fire on Computed');
 	});
 });
