@@ -2,6 +2,31 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { Signal } from './signals.js';
 
+
+
+/**
+ * @type {typeof globalThis.reportError}
+ */
+globalThis.reportError = typeof globalThis.reportError === 'function'
+	? globalThis.reportError
+	: err => console.error(err);
+
+/**
+ * @type {typeof globalThis.queueMicrotask}
+ */
+globalThis.queueMicrotask = typeof globalThis.queueMicrotask === 'function'
+	? globalThis.queueMicrotask
+	: cb => {
+		if (typeof cb !== 'function') {
+			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
+		} else {
+			// Complains about `Promise.try`
+			// @ts-ignore
+			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
+		}
+	};
+
+
 // Helper for the polyfilled requestAnimationFrame (10ms delay)
 const tick = () => new Promise(r => setTimeout(r, 10));
 

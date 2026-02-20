@@ -59,27 +59,6 @@ const sources = Symbol('Signal:sources');
 const sinks = Symbol('Signal:sinks');
 
 /**
- * @type {typeof globalThis.reportError}
- */
-const reportError = typeof globalThis.reportError === 'function'
-	? globalThis.reportError
-	: err => console.error(err);
-
-/**
- * @type {typeof globalThis.queueMicrotask}
- */
-const queueMicrotask = typeof globalThis.queueMicrotask === 'function'
-	? globalThis.queueMicrotask
-	: cb => {
-		if (typeof cb !== 'function') {
-			throw new TypeError('queueMicrotask: Argument 1 is not callable.');
-		} else {
-			// Complains about `Promise.try`
-			// @ts-ignore
-			Promise.resolve().then(() => void Promise.try(cb).catch(reportError));
-		}
-	};
-/**
  * @typedef {(t: any, t2: any) => boolean} EqualityCheck
  */
 
