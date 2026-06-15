@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/signals",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "A polyfill for the (currently stage 1) Signals API proposal",
   "keywords": [
     "tc39-signals",
@@ -76,13 +76,16 @@
   },
   "homepage": "https://github.com/shgysk8zer0/signals#readme",
   "devDependencies": {
-    "@aegisjsproject/dev-server": "^1.0.5",
-    "@aegisjsproject/http-utils": "^1.0.4",
+    "@aegisjsproject/dev-server": "^1.1.0",
+    "@aegisjsproject/http-utils": "^1.1.0",
     "@rollup/plugin-terser": "^1.0.0",
-    "@shgysk8zer0/eslint-config": "^1.0.5",
-    "@shgysk8zer0/http-server": "^1.1.1",
-    "@shgysk8zer0/importmap": "^1.7.9",
-    "eslint": "^10.0.0",
-    "rollup": "^4.57.1"
+    "@shgysk8zer0/eslint-config": "^1.1.0",
+    "@shgysk8zer0/http-server": "^1.2.0",
+    "@shgysk8zer0/importmap": "^1.10.1",
+    "eslint": "^10.4.0",
+    "rollup": "^4.62.0"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }
