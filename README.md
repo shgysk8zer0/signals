@@ -26,7 +26,7 @@ A polyfill for the (currently stage 1) Signals API proposal
 
 - [Code of Conduct](./.github/CODE_OF_CONDUCT.md)
 - [Contributing](./.github/CONTRIBUTING.md)
-<!-- - [Security Policy](./.github/SECURITY.md) -->
+- [Security Policy](./.github/SECURITY.md)
 
 > [!WARNING]  
 > **Experimental / Unstable API**
